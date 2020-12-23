@@ -1,0 +1,43 @@
+---
+- name: Install dnsmasq
+  yum:
+    name: dnsmasq
+    state: present
+
+- name: Copy dnsmasq Configuration File
+  copy:
+    src: dnsmasq.conf
+    dest: /etc/dnsmasq.conf
+    owner: root
+    group: root
+
+- name: Start dnsmasq
+  systemd:
+    name: dnsmasq
+    state: started
+    enabled: yes
+  when: "vpn_port != '53'"
+
+- name: Configure Name Servers
+  nmcli:
+    conn_name: "{{ eth0_connection_name }}"
+    type: ethernet
+    dns4:
+      - 10.8.0.1
+      - 127.0.0.1
+      - 8.8.8.8
+    state: present
+- name: Disable auto DNS
+  shell:
+    cmd: "nmcli connection modify '{{ eth0_connection_name }}' ipv4.ignore-auto-dns yes"
+
+- name: Update DNS
+  shell:
+    cmd: "nmcli connection up '{{ eth0_connection_name }}'"
+
+- name: Add port to firewall
+  ansible.posix.firewalld:
+    service: dns
+    permanent: yes
+    immediate: yes
+    state: enabled

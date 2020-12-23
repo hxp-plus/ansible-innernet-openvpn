@@ -1,0 +1,6 @@
+vpn_port: 1194
+vpn_username: hxp
+domain_name: lab.hxp.plus
+v2ray_uuid: 8bc8fa06-25be-4899-8f84-80093db11c84
+certbot_mail_address: hxp201406@gmail.com
+eth0_connection_name: "System ens3"

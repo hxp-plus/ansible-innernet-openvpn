@@ -1,0 +1,12 @@
+---
+- hosts: vpnserver
+  gather_facts: yes
+  roles:
+    - dnsmasq 
+    - openvpn
+  pre_tasks:
+    - name: check if the system is yum-based
+      debug:
+        msg: "Host is yum-based"
+      failed_when: "ansible_pkg_mgr != 'dnf'"
+      any_errors_fatal: true

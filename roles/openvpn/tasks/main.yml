@@ -1,0 +1,110 @@
+---
+- name: create directory for installation scripts
+  file:
+    name: /root/openvpn-install-script
+    state: directory
+    owner: root
+    group: root
+
+- name: copy install script and file
+  copy:
+    src: "{{ item }}"
+    dest: /root/openvpn-install-script/
+    mode: 0744
+  loop:
+    - "install-openvpn.sh"
+    - "EasyRSA-3.0.8.tgz"
+
+- name: install expect
+  yum:
+    name: expect
+    state: present
+
+- name: copy except script to remote
+  template:
+    src: "{{ item }}.j2"
+    dest: "/root/openvpn-install-script/{{ item }}"
+    mode: 0744
+  with_items:
+    - "install-openvpn.exp"
+    - "uninstall-openvpn.exp"
+
+- name: disable SELinux
+  ansible.posix.selinux:
+    state: disabled
+
+- name: check if OpenVPN exists
+  stat:
+    path: /sbin/openvpn
+  register: openvpn
+
+- name: uninstall openvpn
+  shell: /root/openvpn-install-script/uninstall-openvpn.exp
+  args:
+    chdir: /root/openvpn-install-script/
+  when: openvpn.stat.exists
+
+- name: install openvpn
+  shell: /root/openvpn-install-script/install-openvpn.exp
+  args:
+    chdir: /root/openvpn-install-script/
+
+- name: start firewalld
+  systemd:
+    name: firewalld
+    state: started
+    enabled: yes
+
+- name: configure firewall
+  block:
+    - name: add port to firewall
+      ansible.posix.firewalld:
+        port: "{{ vpn_port }}/udp"
+        permanent: yes
+        immediate: yes
+        state: enabled
+    - name: add masquerade
+      ansible.posix.firewalld:
+        permanent: yes
+        immediate: yes
+        masquerade: yes
+        state: enabled
+
+- name: edit client config
+  block:
+    - name: comment persist tun
+      lineinfile:
+        path: /root/{{ vpn_username }}.ovpn
+        regexp: "^persist-tun"
+        line: ";persist-tun"
+    - name: edit connect-retry
+      lineinfile:
+        path: /root/{{ vpn_username }}.ovpn
+        insertafter: "^verb"
+        line: "connect-retry 3 3"
+    - name: add keepalive
+      lineinfile:
+        path: /root/{{ vpn_username }}.ovpn
+        insertafter: "^connect-retry"
+        line: "keepalive 3 9"
+
+- name: add client resolv scripts
+  blockinfile:
+    path: /root/{{ vpn_username }}.ovpn
+    insertbefore: "<ca>"
+    marker: "; {mark} ANSIBLE MANAGED BLOCK"
+    block: |
+      ; u need to install openvpn-update-systemd-resolved and openresolv
+      script-security 2
+      setenv PATH /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      up /etc/openvpn/scripts/update-systemd-resolved
+      up-restart
+      down /etc/openvpn/scripts/update-systemd-resolved
+      down-pre
+
+- name: fetch VPN config
+  fetch:
+    src: /root/{{ vpn_username }}.ovpn
+    dest: ~/Desktop/{{ vpn_username }}.ovpn
+    flat: yes
+
