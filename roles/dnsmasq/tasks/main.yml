@@ -36,7 +36,7 @@
     cmd: "nmcli connection up '{{ eth0_connection_name }}'"
 
 - name: Add port to firewall
-  ansible.posix.firewalld:
+  firewalld:
     service: dns
     permanent: yes
     immediate: yes

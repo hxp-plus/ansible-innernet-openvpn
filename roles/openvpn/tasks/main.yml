@@ -30,7 +30,7 @@
     - "uninstall-openvpn.exp"
 
 - name: disable SELinux
-  ansible.posix.selinux:
+  selinux:
     state: disabled
 
 - name: check if OpenVPN exists
@@ -58,13 +58,13 @@
 - name: configure firewall
   block:
     - name: add port to firewall
-      ansible.posix.firewalld:
+      firewalld:
         port: "{{ vpn_port }}/udp"
         permanent: yes
         immediate: yes
         state: enabled
     - name: add masquerade
-      ansible.posix.firewalld:
+      firewalld:
         permanent: yes
         immediate: yes
         masquerade: yes
